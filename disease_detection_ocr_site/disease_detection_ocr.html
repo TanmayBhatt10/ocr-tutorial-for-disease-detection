@@ -1,0 +1,133 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Disease Detection OCR</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      color: #333;
+      text-align: center;
+      padding: 30px;
+    }
+    h1 {
+      color: #2c3e50;
+    }
+    #output, #prediction {
+      margin-top: 20px;
+      padding: 20px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      white-space: pre-wrap;
+      text-align: left;
+    }
+    input[type="file"] {
+      margin: 15px auto;
+      display: block;
+    }
+    button {
+      background: #3498db;
+      border: none;
+      padding: 10px 20px;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #2980b9;
+    }
+    .loader {
+      margin-top: 20px;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <h1>Disease Detection from Medical Reports (OCR)</h1>
+  <p>Upload a clear image of your medical report:</p>
+  <input type="file" id="image-input" accept="image/*" />
+  <button onclick="processImage()">Analyze</button>
+  <div class="loader" id="loader" style="display:none;">Extracting data with OCR...</div>
+  <div id="output"></div>
+  <div id="prediction"></div>
+
+  <script>
+    function processImage() {
+      const file = document.getElementById('image-input').files[0];
+      const outputDiv = document.getElementById('output');
+      const predictionDiv = document.getElementById('prediction');
+      const loader = document.getElementById('loader');
+
+      outputDiv.textContent = '';
+      predictionDiv.textContent = '';
+
+      if (!file) {
+        alert('Please select an image first.');
+        return;
+      }
+
+      loader.style.display = 'block';
+
+      Tesseract.recognize(file, 'eng', {
+        logger: m => console.log(m)
+      }).then(({ data: { text } }) => {
+        loader.style.display = 'none';
+        outputDiv.textContent = "Extracted Report:\n" + text;
+        const extractedValues = extractValues(text);
+        const diagnosis = predictDisease(extractedValues);
+        predictionDiv.innerHTML = `<strong>Disease Prediction:</strong> <br/>${diagnosis}`;
+      }).catch(err => {
+        loader.style.display = 'none';
+        outputDiv.textContent = 'Error during OCR: ' + err.message;
+      });
+    }
+
+    function extractValues(text) {
+      const values = {};
+
+      const regexes = {
+        glucose: /glucose[:\s]*([\d.]+)/i,
+        bp_systolic: /systolic[:\s]*([\d.]+)/i,
+        hemoglobin: /hemoglobin[:\s]*([\d.]+)/i,
+        tsh: /tsh[:\s]*([\d.]+)/i,
+        creatinine: /creatinine[:\s]*([\d.]+)/i
+      };
+
+      for (let key in regexes) {
+        const match = text.match(regexes[key]);
+        if (match) values[key] = parseFloat(match[1]);
+      }
+
+      return values;
+    }
+
+    function predictDisease(values) {
+      let results = [];
+
+      if (values.glucose && values.glucose > 140) {
+        results.push('Possible Diabetes (Glucose > 140 mg/dL)');
+      }
+      if (values.bp_systolic && values.bp_systolic > 140) {
+        results.push('Possible Hypertension (Systolic BP > 140)');
+      }
+      if (values.hemoglobin && values.hemoglobin < 12) {
+        results.push('Possible Anemia (Hemoglobin < 12 g/dL)');
+      }
+      if (values.tsh && values.tsh < 0.4) {
+        results.push('Possible Hyperthyroidism (TSH < 0.4 µIU/mL)');
+      }
+      if (values.creatinine && values.creatinine > 1.5) {
+        results.push('Possible Kidney Disease (Creatinine > 1.5 mg/dL)');
+      }
+
+      return results.length > 0 ? results.join('<br/>') : 'No disease detected based on extracted values.';
+    }
+  </script>
+</body>
+</html>
